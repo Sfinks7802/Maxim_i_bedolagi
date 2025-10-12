@@ -1,4 +1,4 @@
-from calculate_angle import calculate_angle
+from poses_detection.calculate_angle import calculate_angle
 
 
 # --- Функция для определения приседа ---

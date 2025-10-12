@@ -4,6 +4,7 @@ from ultralytics import YOLO
 import torch
 from poses_detection.hands_up import check_hand_raised
 from poses_detection.squatting import check_squat
+import datetime as dt
 
 
 def process_video_with_pose_estimation(input_path, output_path, model_name):
@@ -84,6 +85,7 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
             break # Если кадров больше нет, выходим из цикла
 
         frame_count += 1
+        time_start = dt.datetime.now()
         # Выводим прогресс в консоль
         print(f"\rОбработка кадра {frame_count}/{total_frames}...", end="")
 
@@ -146,6 +148,8 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
                         if confs[i] > 0.5:
                             x, y = int(point[0]), int(point[1])
                             cv2.circle(annotated_frame, (x, y), 4, KEYPOINT_COLOR, -1)
+        cv2.putText(annotated_frame, f"{1/float('0.0'+str((dt.datetime.now() - time_start).microseconds))} FPS", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255),
+                    2)
 
         # Записываем обработанный кадр в выходной файл
         out.write(annotated_frame)
