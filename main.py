@@ -4,7 +4,7 @@ from ultralytics import YOLO
 import torch
 
 
-def process_video_with_pose_estimation(input_path, output_path, model_name='yolov8n-pose.pt'):
+def process_video_with_pose_estimation(input_path, output_path, model_name):
     """
     Обрабатывает видеофайл для распознавания поз людей, рисует скелеты и сохраняет результат.
 
@@ -72,6 +72,7 @@ def process_video_with_pose_estimation(input_path, output_path, model_name='yolo
     # Цвета для точек и линий
     KEYPOINT_COLOR = (0, 0, 255) # Красный для точек
     LINE_COLOR = (0, 255, 0) # Зеленый для линий
+    BOX_COLOR = (255, 0, 0)  # Синий для боксов
 
     # --- 5. Обработка каждого кадра видео ---
     frame_count = 0
@@ -93,31 +94,54 @@ def process_video_with_pose_estimation(input_path, output_path, model_name='yolo
 
         # Извлекаем результаты
         # results - это список, для одного изображения/кадра он содержит один элемент
-        if results[0].keypoints:
+        if results[0].boxes and results[0].keypoints:
+
+            # --- ИЗМЕНЕНИЯ: Получаем и боксы, и ключевые точки ---
+
             keypoints_data = results[0].keypoints.cpu().numpy()
+            boxes_data = results[0].boxes.cpu().numpy()
 
-            # Итерируемся по каждому распознанному человеку
-            for person_keypoints in keypoints_data:
-                # person_keypoints.xy содержит координаты [x, y] для всех 17 точек
-                # person_keypoints.conf содержит уверенность в распознавании каждой точки
+            # --- ИЗМЕНЕНИЯ: Итерируемся по индексу, чтобы связать бокс и скелет ---
+            for i in range(len(boxes_data)):
+                box = boxes_data[i]
+                person_keypoints = keypoints_data[i]
 
-                points = person_keypoints.xy[0] # Получаем массив точек (17, 2)
-                confs = person_keypoints.conf[0] # Получаем массив уверенностей (17,)
+                # Уверенность в распознавании человека
+                confidence = box.conf[0]
 
-                # Рисуем линии скелета
-                for p1_idx, p2_idx in SKELETON_CONNECTIONS:
-                    # Рисуем линию, только если обе точки были распознаны с достаточной уверенностью
-                    if confs[p1_idx] > 0.5 and confs[p2_idx] > 0.5:
-                        point1 = tuple(map(int, points[p1_idx]))
-                        point2 = tuple(map(int, points[p2_idx]))
-                        cv2.line(annotated_frame, point1, point2, LINE_COLOR, 2)
+                # Рисуем только если уверенность выше порога (например, 0.5)
+                if confidence > 0.5:
+                    # --- НОВЫЙ КОД: Извлечение и рисование бокса ---
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), BOX_COLOR, 2)
 
-                # Рисуем ключевые точки
-                for i, point in enumerate(points):
-                    # Рисуем точку, только если она распознана с достаточной уверенностью
-                    if confs[i] > 0.5:
-                        x, y = int(point[0]), int(point[1])
-                        cv2.circle(annotated_frame, (x, y), 4, KEYPOINT_COLOR, -1)
+                    # --- НОВЫЙ КОД: Рисование подписи 'human' ---
+                    label = f'human {confidence:.2f}'
+                    label_size, base_line = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+                    y1_label = max(y1, label_size[1] + 10)
+                    cv2.rectangle(annotated_frame, (x1, y1_label - label_size[1] - 10),
+                                  (x1 + label_size[0], y1_label - base_line), BOX_COLOR, cv2.FILLED)
+                    cv2.putText(annotated_frame, label, (x1, y1_label - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255),
+                                2)
+
+                    # --- Код для рисования скелета (остался почти без изменений) ---
+                    points = person_keypoints.xy[0]
+                    confs = person_keypoints.conf[0]
+
+                    # Рисуем линии скелета
+                    for p1_idx, p2_idx in SKELETON_CONNECTIONS:
+                        # Рисуем линию, только если обе точки были распознаны с достаточной уверенностью
+                        if confs[p1_idx] > 0.5 and confs[p2_idx] > 0.5:
+                            point1 = tuple(map(int, points[p1_idx]))
+                            point2 = tuple(map(int, points[p2_idx]))
+                            cv2.line(annotated_frame, point1, point2, LINE_COLOR, 2)
+
+                    # Рисуем ключевые точки
+                    for i, point in enumerate(points):
+                        # Рисуем точку, только если она распознана с достаточной уверенностью
+                        if confs[i] > 0.5:
+                            x, y = int(point[0]), int(point[1])
+                            cv2.circle(annotated_frame, (x, y), 4, KEYPOINT_COLOR, -1)
 
         # Записываем обработанный кадр в выходной файл
         out.write(annotated_frame)
