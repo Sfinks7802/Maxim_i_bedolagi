@@ -2,8 +2,87 @@ import cv2
 import os
 from ultralytics import YOLO
 import torch
+import math
+import numpy as np
 
-# --- НОВЫЙ КОД: Функция для определения поднятых рук ---
+
+# --- Универсальная функция для вычисления угла ---
+def calculate_angle(a, b, c):
+    """
+    Вычисляет угол между тремя точками (в градусах). Угол измеряется в точке 'b'.
+
+    Args:
+        a, b, c (tuple or np.array): Координаты (x, y) трех точек.
+
+    Returns:
+        float: Угол в градусах от 0 до 180.
+    """
+    a = np.array(a) # Первая точка
+    b = np.array(b) # Средняя точка (вершина угла)
+    c = np.array(c) # Третья точка
+
+    # Вычисляем векторы от средней точки
+    ba = a - b
+    bc = c - b
+
+    # Используем формулу косинуса угла между векторами
+    cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+
+    # Защита от выхода за пределы [-1, 1] из-за ошибок округления
+    cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
+
+    angle = np.arccos(cosine_angle)
+
+    return np.degrees(angle)
+
+
+# --- Функция для определения приседа ---
+def check_squat(points, confs, confidence_threshold=0.5, knee_angle_threshold=120, hip_angle_threshold=120):
+    """
+    Проверяет, находится ли человек в приседе.
+
+    Args:
+        points (np.array): Координаты 17 ключевых точек.
+        confs (np.array): Уверенность для каждой точки.
+        confidence_threshold (float): Порог уверенности для учета точки.
+        knee_angle_threshold (float): Пороговый угол для колена.
+        hip_angle_threshold (float): Пороговый угол для бедра.
+
+    Returns:
+        str: " (Squatting)" если поза соответствует, иначе "".
+    """
+    # Индексы ключевых точек COCO
+    L_SHOULDER, R_SHOULDER = 5, 6
+    L_HIP, R_HIP = 11, 12
+    L_KNEE, R_KNEE = 13, 14
+    L_ANKLE, R_ANKLE = 15, 16
+
+    left_leg_squat = False
+    right_leg_squat = False
+
+    # Проверка левой ноги
+    if all(confs[i] > confidence_threshold for i in [L_SHOULDER, L_HIP, L_KNEE, L_ANKLE]):
+        left_knee_angle = calculate_angle(points[L_HIP], points[L_KNEE], points[L_ANKLE])
+        left_hip_angle = calculate_angle(points[L_SHOULDER], points[L_HIP], points[L_KNEE])
+        if left_knee_angle < knee_angle_threshold and left_hip_angle < hip_angle_threshold:
+            left_leg_squat = True
+
+    # Проверка правой ноги
+    if all(confs[i] > confidence_threshold for i in [R_SHOULDER, R_HIP, R_KNEE, R_ANKLE]):
+        right_knee_angle = calculate_angle(points[R_HIP], points[R_KNEE], points[R_ANKLE])
+        right_hip_angle = calculate_angle(points[R_SHOULDER], points[R_HIP], points[R_KNEE])
+        if right_knee_angle < knee_angle_threshold and right_hip_angle < hip_angle_threshold:
+            right_leg_squat = True
+
+    # Считаем, что человек приседает, если хотя бы одна нога в нужной позе
+    if left_leg_squat or right_leg_squat:
+        return " (Squatting)"
+    else:
+        return ""
+
+
+
+# --- Функция для определения поднятых рук ---
 def check_hand_raised(points, confs, confidence_threshold=0.5):
     """
     Проверяет, подняты ли руки у человека, на основе координат ключевых точек.
@@ -162,8 +241,9 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
                     cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), BOX_COLOR, 2)
 
                     # --- Рисование подписи 'human' ---
-                    pose_status = check_hand_raised(points, confs)
-                    label = f'human {confidence:.2f}{pose_status}'
+                    hand_status = check_hand_raised(points, confs)
+                    squat_status = check_squat(points, confs)
+                    label = f'human {confidence:.2f}{hand_status}{squat_status}'
                     label_size, base_line = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
                     y1_label = max(y1, label_size[1] + 10)
                     cv2.rectangle(annotated_frame, (x1, y1_label - label_size[1] - 10),
@@ -199,7 +279,7 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
     print(f"Видео успешно сохранено: {output_path}")
 
 if __name__ == '__main__':
-    input = 'input1.mp4'
+    input = 'input3.mp4'
     file_name, file_ext = os.path.splitext(os.path.basename(input))
     output = f"{file_name}_processed{file_ext}"
 
