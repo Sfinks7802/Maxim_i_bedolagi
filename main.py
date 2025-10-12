@@ -140,7 +140,7 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Используется устройство: {device}")
 
-    # --- 1. Загрузка модели YOLOv8-pose ---
+    # --- 1. Загрузка модели YOLO ---
     # Модель будет автоматически загружена из интернета при первом запуске
     print(f"Загрузка модели {model_name}...")
     try:
