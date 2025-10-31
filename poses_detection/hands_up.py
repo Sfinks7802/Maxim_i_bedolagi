@@ -21,13 +21,19 @@ def check_hand_raised(points, confs, confidence_threshold=0.5):
 
     # Проверка левой руки
     # Условие: точки плеча и запястья должны быть распознаны с достаточной уверенностью
-    if confs[L_WRIST] > confidence_threshold and confs[L_SHOULDER] > confidence_threshold:
+    if (
+        confs[L_WRIST] > confidence_threshold
+        and confs[L_SHOULDER] > confidence_threshold
+    ):
         # Условие: Y-координата запястья должна быть меньше Y-координаты плеча
         if points[L_WRIST][1] < points[L_SHOULDER][1]:
             left_hand_up = True
 
     # Проверка правой руки
-    if confs[R_WRIST] > confidence_threshold and confs[R_SHOULDER] > confidence_threshold:
+    if (
+        confs[R_WRIST] > confidence_threshold
+        and confs[R_SHOULDER] > confidence_threshold
+    ):
         if points[R_WRIST][1] < points[R_SHOULDER][1]:
             right_hand_up = True
 

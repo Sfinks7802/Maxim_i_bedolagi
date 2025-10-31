@@ -17,7 +17,7 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
         model_name (str): Название модели YOLOv8 для оценки поз.
     """
     # Проверка, доступен ли CUDA, и выбор устройства
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Используется устройство: {device}")
 
     # --- 1. Загрузка модели YOLO ---
@@ -25,7 +25,7 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
     print(f"Загрузка модели {model_name}...")
     try:
         model = YOLO(model_name)
-        model.to(device) # Перемещаем модель на выбранное устройство (GPU/CPU)
+        model.to(device)  # Перемещаем модель на выбранное устройство (GPU/CPU)
     except Exception as e:
         print(f"Ошибка при загрузке модели: {e}")
         return
@@ -44,11 +44,13 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
     fps = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    print(f"Видео '{os.path.basename(input_path)}': {frame_width}x{frame_height}, {fps:.2f} FPS, {total_frames} кадров.")
+    print(
+        f"Видео '{os.path.basename(input_path)}': {frame_width}x{frame_height}, {fps:.2f} FPS, {total_frames} кадров."
+    )
 
     # --- 3. Создание объекта для записи видео ---
     # Используем кодек 'mp4v' для формата .mp4
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
     print(f"Результат будет сохранен в: {output_path}")
 
@@ -59,22 +61,32 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
     # 13:л_колено, 14:п_колено, 15:л_лодыжка, 16:п_лодыжка
     SKELETON_CONNECTIONS = [
         # Голова
-        (0, 1), (0, 2), (1, 3), (2, 4),
+        (0, 1),
+        (0, 2),
+        (1, 3),
+        (2, 4),
         # Тело
-        (5, 6), (5, 11), (6, 12), (11, 12),
+        (5, 6),
+        (5, 11),
+        (6, 12),
+        (11, 12),
         # Левая рука
-        (5, 7), (7, 9),
+        (5, 7),
+        (7, 9),
         # Правая рука
-        (6, 8), (8, 10),
+        (6, 8),
+        (8, 10),
         # Левая нога
-        (11, 13), (13, 15),
+        (11, 13),
+        (13, 15),
         # Правая нога
-        (12, 14), (14, 16)
+        (12, 14),
+        (14, 16),
     ]
 
     # Цвета для точек и линий
-    KEYPOINT_COLOR = (0, 0, 255) # Красный для точек
-    LINE_COLOR = (0, 255, 0) # Зеленый для линий
+    KEYPOINT_COLOR = (0, 0, 255)  # Красный для точек
+    LINE_COLOR = (0, 255, 0)  # Зеленый для линий
     BOX_COLOR = (255, 0, 0)  # Синий для боксов
 
     # --- 5. Обработка каждого кадра видео ---
@@ -82,7 +94,7 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
-            break # Если кадров больше нет, выходим из цикла
+            break  # Если кадров больше нет, выходим из цикла
 
         frame_count += 1
         time_start = dt.datetime.now()
@@ -124,13 +136,27 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
                     # --- Рисование подписи 'human' ---
                     hand_status = check_hand_raised(points, confs)
                     squat_status = check_squat(points, confs)
-                    label = f'human {confidence:.2f}{hand_status}{squat_status}'
-                    label_size, base_line = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+                    label = f"human {confidence:.2f}{hand_status}{squat_status}"
+                    label_size, base_line = cv2.getTextSize(
+                        label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
+                    )
                     y1_label = max(y1, label_size[1] + 10)
-                    cv2.rectangle(annotated_frame, (x1, y1_label - label_size[1] - 10),
-                                  (x1 + label_size[0], y1_label - base_line), BOX_COLOR, cv2.FILLED)
-                    cv2.putText(annotated_frame, label, (x1, y1_label - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255),
-                                2)
+                    cv2.rectangle(
+                        annotated_frame,
+                        (x1, y1_label - label_size[1] - 10),
+                        (x1 + label_size[0], y1_label - base_line),
+                        BOX_COLOR,
+                        cv2.FILLED,
+                    )
+                    cv2.putText(
+                        annotated_frame,
+                        label,
+                        (x1, y1_label - 7),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7,
+                        (255, 255, 255),
+                        2,
+                    )
 
                     # --- Код для рисования скелета ---
 
@@ -148,8 +174,15 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
                         if confs[i] > 0.5:
                             x, y = int(point[0]), int(point[1])
                             cv2.circle(annotated_frame, (x, y), 4, KEYPOINT_COLOR, -1)
-        cv2.putText(annotated_frame, f"{1/float('0.0'+str((dt.datetime.now() - time_start).microseconds))} FPS", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255),
-                    2)
+        cv2.putText(
+            annotated_frame,
+            f"{1/float('0.0'+str((dt.datetime.now() - time_start).microseconds))} FPS",
+            (50, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            2,
+        )
 
         # Записываем обработанный кадр в выходной файл
         out.write(annotated_frame)
@@ -161,8 +194,9 @@ def process_video_with_pose_estimation(input_path, output_path, model_name):
     cv2.destroyAllWindows()
     print(f"Видео успешно сохранено: {output_path}")
 
-if __name__ == '__main__':
-    input = 'input3.mp4'
+
+if __name__ == "__main__":
+    input = "input_my.mp4"
     file_name, file_ext = os.path.splitext(os.path.basename(input))
     output = f"{file_name}_processed{file_ext}"
 
